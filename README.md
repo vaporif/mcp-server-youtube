@@ -59,24 +59,6 @@ A Rust [MCP](https://modelcontextprotocol.io/) server for YouTube. Search videos
 3. Enable the **YouTube Data API v3**
 4. Create an API key under **Credentials**
 
-### Install
-
-**From source:**
-
-```sh
-cargo install --git https://github.com/vaporif/mcp-server-youtube
-```
-
-**With Nix:**
-
-```sh
-nix run github:vaporif/mcp-server-youtube
-```
-
-**From releases:**
-
-Download a prebuilt binary from [GitHub Releases](https://github.com/vaporif/mcp-server-youtube/releases).
-
 ## Configuration
 
 | Environment Variable | CLI Flag | Default | Description |
@@ -94,26 +76,14 @@ The API key is stored as a `SecretString` and never appears in logs or debug out
 
 ### Claude Desktop / Claude Code
 
-Add to your MCP config:
+Add to your MCP config (requires [rvx](https://github.com/vaporif/rvx)):
 
 ```json
 {
   "mcpServers": {
     "youtube": {
-      "command": "mcp-server-youtube",
-      "args": ["--youtube-api-key", "YOUR_API_KEY"]
-    }
-  }
-}
-```
-
-Or with environment variables:
-
-```json
-{
-  "mcpServers": {
-    "youtube": {
-      "command": "mcp-server-youtube",
+      "command": "rvx",
+      "args": ["mcp-server-youtube"],
       "env": {
         "YOUTUBE_API_KEY": "YOUR_API_KEY"
       }
@@ -122,20 +92,26 @@ Or with environment variables:
 }
 ```
 
-Or with [rvx](https://github.com/vaporif/rvx?tab=readme-ov-file#install) (no Rust toolchain needed):
+<details>
+<summary>Other installation methods</summary>
 
-```json
-{
-  "mcpServers": {
-    "youtube": {
-      "command": "rvx mcp-server-youtube",
-      "env": {
-        "YOUTUBE_API_KEY": "YOUR_API_KEY"
-      }
-    }
-  }
-}
+**From source:**
+
+```sh
+cargo install --git https://github.com/vaporif/mcp-server-youtube
 ```
+
+**With Nix:**
+
+```sh
+nix run github:vaporif/mcp-server-youtube
+```
+
+**From releases:**
+
+Download a prebuilt binary from [GitHub Releases](https://github.com/vaporif/mcp-server-youtube/releases).
+
+</details>
 
 ### HTTP Transport
 
