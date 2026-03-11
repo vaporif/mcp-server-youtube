@@ -330,6 +330,27 @@ pub struct GetChannelByHandleParams {
 }
 
 #[derive(Deserialize, JsonSchema)]
+pub struct SearchChannelsParams {
+    /// Search query (channel name, topic, etc.)
+    pub query: String,
+    /// Maximum number of results (1-50, default: 10)
+    #[serde(default = "default_search_max")]
+    pub max_results: u32,
+    /// Page token for pagination
+    #[serde(default)]
+    pub page_token: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct GetBatchTranscriptsParams {
+    /// List of video IDs to fetch transcripts for
+    pub video_ids: Vec<String>,
+    /// Language code (uses server default if not specified)
+    #[serde(default)]
+    pub language: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
 pub struct ListCaptionsParams {
     /// The video ID
     pub video_id: String,

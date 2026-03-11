@@ -42,6 +42,7 @@ google-youtube3 = "7"
 google-apis-common = "8"
 rustypipe = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "json"] }
+futures = { version = "0.3.32", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 mcp-server-youtube = { path = ".", features = ["test-helpers"] }

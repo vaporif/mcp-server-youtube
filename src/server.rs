@@ -8,9 +8,10 @@ use rmcp::{ErrorData as McpError, ServerHandler, tool, tool_handler, tool_router
 use crate::config::Config;
 use crate::errors::Error;
 use crate::params::{
-    GetCategoriesParams, GetChannelByHandleParams, GetChannelParams, GetCommentsParams,
-    GetPlaylistItemsParams, GetPlaylistParams, GetTranscriptParams, GetTrendingParams,
-    GetVideoParams, ListCaptionsParams, ListChannelVideosParams, SearchVideosParams,
+    GetBatchTranscriptsParams, GetCategoriesParams, GetChannelByHandleParams, GetChannelParams,
+    GetCommentsParams, GetPlaylistItemsParams, GetPlaylistParams, GetTranscriptParams,
+    GetTrendingParams, GetVideoParams, ListCaptionsParams, ListChannelVideosParams,
+    SearchChannelsParams, SearchVideosParams,
 };
 use crate::youtube::{YoutubeHub, create_hub};
 use google_youtube3::api::{
@@ -231,27 +232,54 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "channels_listVideos",
-        description = "List videos from a specific YouTube channel, ordered by date. Returns paginated results. Tip: use channels_getByHandle first to resolve a handle to a channel ID."
+        description = "List videos from a specific YouTube channel, ordered by date (newest first). Returns paginated results. Tip: use channels_getByHandle first to resolve a handle to a channel ID."
     )]
     async fn list_channel_videos(
         &self,
         Parameters(params): Parameters<ListChannelVideosParams>,
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(channel_id = %params.channel_id, max_results = params.max_results, "list_channel_videos");
-        let parts = parts(&["snippet"]);
-        let call = self
-            .hub
-            .search()
-            .list(&parts)
-            .channel_id(&params.channel_id)
-            .add_type("video")
-            .order("date")
-            .max_results(clamp_max_results(params.max_results))
-            .param("key", self.api_key());
 
-        let call = OptionalFilters(call)
-            .apply(params.page_token.as_deref(), SearchListCall::page_token)
-            .build();
+        // Resolve the channel's uploads playlist ID.
+        let (_, channel) = self
+            .hub
+            .channels()
+            .list(&parts(&["contentDetails"]))
+            .add_id(&params.channel_id)
+            .param("key", self.api_key())
+            .doit()
+            .await
+            .map_err(Error::from)?;
+
+        let uploads_id = channel
+            .items
+            .as_ref()
+            .and_then(|items| items.first())
+            .and_then(|ch| ch.content_details.as_ref())
+            .and_then(|cd| cd.related_playlists.as_ref())
+            .and_then(|rp| rp.uploads.as_deref())
+            .ok_or_else(|| {
+                Error::Config(format!(
+                    "no uploads playlist for channel {}",
+                    params.channel_id
+                ))
+            })?;
+
+        // List videos from the uploads playlist.
+        let video_parts = parts(&["snippet", "contentDetails"]);
+        let call = OptionalFilters(
+            self.hub
+                .playlist_items()
+                .list(&video_parts)
+                .playlist_id(uploads_id)
+                .max_results(clamp_max_results(params.max_results))
+                .param("key", self.api_key()),
+        )
+        .apply(
+            params.page_token.as_deref(),
+            PlaylistItemListCall::page_token,
+        )
+        .build();
 
         let (_, body) = call.doit().await.map_err(Error::from)?;
 
@@ -474,6 +502,33 @@ impl YoutubeMcpServer {
     }
 
     #[tool(
+        name = "channels_search",
+        description = "Search for YouTube channels by name or topic. Returns channel IDs, titles, descriptions, and subscriber counts. Use this when you don't know the exact channel handle."
+    )]
+    async fn search_channels(
+        &self,
+        Parameters(params): Parameters<SearchChannelsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        tracing::debug!(query = %params.query, max_results = params.max_results, "search_channels");
+        let parts = parts(&["snippet"]);
+        let call = OptionalFilters(
+            self.hub
+                .search()
+                .list(&parts)
+                .q(&params.query)
+                .add_type("channel")
+                .max_results(clamp_max_results(params.max_results))
+                .param("key", self.api_key()),
+        )
+        .apply(params.page_token.as_deref(), SearchListCall::page_token)
+        .build();
+
+        let (_, body) = call.doit().await.map_err(Error::from)?;
+
+        to_json_result(&body)
+    }
+
+    #[tool(
         name = "transcripts_listLanguages",
         description = "List available subtitle/caption languages for a YouTube video. Use before transcripts_getTranscript to check which languages are available. Does not consume API key quota."
     )]
@@ -505,6 +560,71 @@ impl YoutubeMcpServer {
             "video_id": params.video_id,
             "languages": languages,
         }))
+    }
+
+    #[tool(
+        name = "transcripts_getBatch",
+        description = "Get transcripts for multiple videos in a single call. Returns plain text transcripts for each video. Use this instead of calling transcripts_getTranscript repeatedly. Does not consume API key quota."
+    )]
+    async fn get_batch_transcripts(
+        &self,
+        Parameters(params): Parameters<GetBatchTranscriptsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use futures::stream::{self, StreamExt};
+
+        tracing::debug!(count = params.video_ids.len(), "get_batch_transcripts");
+        let lang = params
+            .language
+            .as_deref()
+            .unwrap_or(&self.config.youtube.transcript_lang);
+
+        let results: Vec<_> = stream::iter(params.video_ids)
+            .map(|video_id| {
+                let this = self;
+                async move {
+                    match this.fetch_transcript_text(&video_id, lang).await {
+                        Ok(text) => serde_json::json!({
+                            "video_id": video_id,
+                            "text": text,
+                        }),
+                        Err(e) => serde_json::json!({
+                            "video_id": video_id,
+                            "error": e.to_string(),
+                        }),
+                    }
+                }
+            })
+            .buffer_unordered(self.config.youtube.transcript_concurrency)
+            .collect()
+            .await;
+
+        to_json_result(&serde_json::json!({ "transcripts": results }))
+    }
+}
+
+impl YoutubeMcpServer {
+    async fn fetch_transcript_text(&self, video_id: &str, lang: &str) -> Result<String, Error> {
+        let player = self.rustypipe.query().player(video_id).await?;
+
+        let subtitle = player
+            .subtitles
+            .iter()
+            .find(|s| s.lang == lang)
+            .or_else(|| player.subtitles.first())
+            .ok_or_else(|| Error::NoSubtitles(video_id.to_string()))?;
+
+        let url = format!("{}&fmt=json3", subtitle.url);
+        let json: serde_json::Value = self.http.get(&url).send().await?.json().await?;
+
+        let empty = vec![];
+        let events = json["events"].as_array().unwrap_or(&empty);
+        let text = events
+            .iter()
+            .filter_map(extract_event_text)
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        Ok(text)
     }
 }
 
@@ -593,6 +713,20 @@ impl YoutubeMcpServer {
         params: Parameters<ListCaptionsParams>,
     ) -> Result<CallToolResult, McpError> {
         self.list_captions(params).await
+    }
+
+    pub async fn call_search_channels(
+        &self,
+        params: Parameters<SearchChannelsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.search_channels(params).await
+    }
+
+    pub async fn call_get_batch_transcripts(
+        &self,
+        params: Parameters<GetBatchTranscriptsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.get_batch_transcripts(params).await
     }
 }
 

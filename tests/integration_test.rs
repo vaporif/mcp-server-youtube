@@ -18,6 +18,7 @@ fn create_server() -> YoutubeMcpServer {
         youtube: YoutubeConfig {
             api_key: SecretString::from(api_key()),
             transcript_lang: "en".into(),
+            transcript_concurrency: 50,
         },
         transport: Transport::Stdio,
     });
@@ -145,209 +146,52 @@ mod videos {
         assert!(text2.contains("\"items\""), "second page should have items");
     }
 
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_order_by_view_count() {
-        use mcp_server_youtube::params::SearchOrder;
-
-        let server = create_server();
-        let mut params = search_params("rust programming", 3);
-        params.order = Some(SearchOrder::ViewCount);
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-        assert!(text.contains("videoId"), "should contain video IDs");
-    }
+    // Search filter tests are consolidated to minimize API quota usage.
+    // Each search.list call costs 100 quota units.
 
     #[tokio::test]
     #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_order_by_date() {
-        use mcp_server_youtube::params::SearchOrder;
-
-        let server = create_server();
-        let mut params = search_params("rust programming", 3);
-        params.order = Some(SearchOrder::Date);
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_duration_short() {
-        use mcp_server_youtube::params::VideoDuration;
-
-        let server = create_server();
-        let mut params = search_params("rust tutorial", 3);
-        params.video_duration = Some(VideoDuration::Short);
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_hd_only() {
-        use mcp_server_youtube::params::VideoDefinition;
-
-        let server = create_server();
-        let mut params = search_params("rust programming", 3);
-        params.video_definition = Some(VideoDefinition::High);
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_published_after() {
-        let server = create_server();
-        let mut params = search_params("rust programming", 3);
-        params.published_after = Some("2024-01-01T00:00:00Z".into());
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_date_range() {
-        let server = create_server();
-        let mut params = search_params("rust conference talk", 3);
-        params.published_after = Some("2023-01-01T00:00:00Z".into());
-        params.published_before = Some("2023-12-31T23:59:59Z".into());
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_region() {
-        let server = create_server();
-        let mut params = search_params("programming", 3);
-        params.region_code = Some("JP".into());
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_captions() {
-        use mcp_server_youtube::params::VideoCaption;
-
-        let server = create_server();
-        let mut params = search_params("rust tutorial", 3);
-        params.video_caption = Some(VideoCaption::ClosedCaption);
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_creative_commons() {
-        use mcp_server_youtube::params::VideoLicense;
-
-        let server = create_server();
-        let mut params = search_params("nature", 3);
-        params.video_license = Some(VideoLicense::CreativeCommon);
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_embeddable() {
-        let server = create_server();
-        let mut params = search_params("rust programming", 3);
-        params.embeddable_only = Some(true);
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_safe_search() {
-        use mcp_server_youtube::params::SafeSearch;
-
-        let server = create_server();
-        let mut params = search_params("coding tutorial", 3);
-        params.safe_search = Some(SafeSearch::Strict);
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_category() {
-        let server = create_server();
-        let mut params = search_params("music video", 3);
-        params.video_category_id = Some("10".into()); // Music
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_filter_relevance_language() {
-        let server = create_server();
-        let mut params = search_params("programming tutorial", 3);
-        params.relevance_language = Some("ja".into());
-        let result = server.call_search_videos(Parameters(params)).await;
-
-        assert!(result.is_ok());
-        let text = extract_text(&result.unwrap());
-        assert!(text.contains("\"items\""), "should contain items");
-    }
-
-    #[tokio::test]
-    #[ignore = "requires YOUTUBE_API_KEY"]
-    async fn search_videos_combined_filters() {
-        use mcp_server_youtube::params::{SearchOrder, VideoDefinition, VideoDuration};
+    async fn search_videos_with_sorting_and_video_filters() {
+        use mcp_server_youtube::params::{
+            SafeSearch, SearchOrder, VideoCaption, VideoDefinition, VideoDuration,
+        };
 
         let server = create_server();
         let mut params = search_params("rust programming", 3);
         params.order = Some(SearchOrder::ViewCount);
         params.video_duration = Some(VideoDuration::Medium);
         params.video_definition = Some(VideoDefinition::High);
-        params.region_code = Some("US".into());
+        params.video_caption = Some(VideoCaption::ClosedCaption);
+        params.safe_search = Some(SafeSearch::Strict);
         params.embeddable_only = Some(true);
+        params.region_code = Some("US".into());
+        params.relevance_language = Some("en".into());
         let result = server.call_search_videos(Parameters(params)).await;
 
         assert!(result.is_ok());
         let text = extract_text(&result.unwrap());
         assert!(text.contains("\"items\""), "should contain items");
         assert!(text.contains("videoId"), "should contain video IDs");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires YOUTUBE_API_KEY"]
+    async fn search_videos_with_date_range_and_metadata_filters() {
+        use mcp_server_youtube::params::{SearchOrder, VideoLicense, VideoType};
+
+        let server = create_server();
+        let mut params = search_params("nature documentary", 3);
+        params.order = Some(SearchOrder::Date);
+        params.published_after = Some("2023-01-01T00:00:00Z".into());
+        params.published_before = Some("2024-12-31T23:59:59Z".into());
+        params.video_license = Some(VideoLicense::CreativeCommon);
+        params.video_type = Some(VideoType::Any);
+        params.video_category_id = Some("10".into());
+        let result = server.call_search_videos(Parameters(params)).await;
+
+        assert!(result.is_ok());
+        let text = extract_text(&result.unwrap());
+        assert!(text.contains("\"items\""), "should contain items");
     }
 
     #[tokio::test]
@@ -723,6 +567,55 @@ mod captions {
         let text = extract_text(&result.unwrap());
         assert!(text.contains("languages"), "should contain languages");
         assert!(text.contains("\"lang\""), "should contain lang field");
+    }
+}
+
+// ── Channel Search ──
+
+mod channel_search {
+    use super::*;
+    use mcp_server_youtube::params::SearchChannelsParams;
+
+    #[tokio::test]
+    #[ignore = "requires YOUTUBE_API_KEY"]
+    async fn search_channels_returns_results() {
+        let server = create_server();
+        let result = server
+            .call_search_channels(Parameters(SearchChannelsParams {
+                query: "Rick Astley".into(),
+                max_results: 3,
+                page_token: None,
+            }))
+            .await;
+
+        assert!(result.is_ok());
+        let text = extract_text(&result.unwrap());
+        assert!(text.contains("\"items\""), "should contain items");
+        assert!(text.contains("channelId"), "should contain channel IDs");
+    }
+}
+
+// ── Batch Transcripts ──
+
+mod batch_transcripts {
+    use super::*;
+    use mcp_server_youtube::params::GetBatchTranscriptsParams;
+
+    #[tokio::test]
+    #[ignore = "requires YOUTUBE_API_KEY"]
+    async fn get_batch_transcripts_returns_texts() {
+        let server = create_server();
+        let result = server
+            .call_get_batch_transcripts(Parameters(GetBatchTranscriptsParams {
+                video_ids: vec!["dQw4w9WgXcQ".into()],
+                language: Some("en".into()),
+            }))
+            .await;
+
+        assert!(result.is_ok());
+        let text = extract_text(&result.unwrap());
+        assert!(text.contains("transcripts"), "should contain transcripts");
+        assert!(text.contains("\"text\""), "should contain text field");
     }
 }
 

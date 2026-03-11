@@ -25,6 +25,10 @@ pub struct Cli {
     /// Port for HTTP transport
     #[arg(long, default_value = "3000", env = "PORT")]
     pub port: u16,
+
+    /// Max concurrent transcript fetches for batch operations
+    #[arg(long, default_value = "50", env = "YOUTUBE_TRANSCRIPT_CONCURRENCY")]
+    pub transcript_concurrency: usize,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -41,6 +45,7 @@ pub enum Transport {
 pub struct YoutubeConfig {
     pub api_key: SecretString,
     pub transcript_lang: String,
+    pub transcript_concurrency: usize,
 }
 
 impl YoutubeConfig {
@@ -75,6 +80,7 @@ impl Config {
             youtube: YoutubeConfig {
                 api_key: SecretString::from(api_key),
                 transcript_lang: cli.transcript_lang,
+                transcript_concurrency: cli.transcript_concurrency,
             },
             transport,
         })

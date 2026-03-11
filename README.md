@@ -84,6 +84,7 @@ Download a prebuilt binary from [GitHub Releases](https://github.com/vaporif/mcp
 | `MCP_TRANSPORT` | `--transport` | `stdio` | Transport: `stdio` or `streamable-http` |
 | `HOST` | `--host` | `127.0.0.1` | HTTP bind address |
 | `PORT` | `--port` | `3000` | HTTP port |
+| `YOUTUBE_TRANSCRIPT_CONCURRENCY` | `--transcript-concurrency` | `50` | Max concurrent transcript fetches for batch operations |
 
 The API key is stored as a `SecretString` and never appears in logs or debug output.
 
