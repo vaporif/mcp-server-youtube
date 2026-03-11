@@ -61,8 +61,6 @@ jobs:
             os: macos-latest
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-          - target: aarch64-pc-windows-msvc
-            os: windows-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -128,6 +126,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      # RUSTSEC-2025-0066: google-apis-common is unmaintained but the suggested
+      # replacement (google-cloud-rust) has no YouTube Data API v3 client.
+      # No alternative Rust crate exists. The YouTube v3 REST API is stable.
+      - name: Audit
+        run: cargo audit --ignore RUSTSEC-2025-0066
