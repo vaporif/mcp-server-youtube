@@ -26,6 +26,7 @@ A Rust [MCP](https://modelcontextprotocol.io/) server for YouTube. Search videos
 |------|-------------|
 | `channels_getChannel` | Get channel info and statistics by channel ID |
 | `channels_getByHandle` | Look up a channel by its handle (e.g. `@shura_stone`) |
+| `channels_search` | Search for channels by name |
 | `channels_listVideos` | List videos from a channel (by date) with pagination |
 
 ### Playlists
@@ -46,6 +47,7 @@ A Rust [MCP](https://modelcontextprotocol.io/) server for YouTube. Search videos
 | Tool | Description |
 |------|-------------|
 | `transcripts_getTranscript` | Get video transcript/subtitles. Works with both auto-generated and manual captions. Returns plain text by default; set `include_timestamps` for per-segment timing. Uses [rustypipe](https://github.com/thedodd/rustypipe) (InnerTube API) — no API key quota consumed |
+| `transcripts_getBatch` | Fetch transcripts for multiple videos in one call with concurrent fetching. No API key quota consumed |
 | `transcripts_listLanguages` | List available subtitle/caption languages for a video |
 
 ## Setup
@@ -112,6 +114,21 @@ Or with environment variables:
   "mcpServers": {
     "youtube": {
       "command": "mcp-server-youtube",
+      "env": {
+        "YOUTUBE_API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Or with [rvx](https://github.com/vaporif/rvx?tab=readme-ov-file#install) (no Rust toolchain needed):
+
+```json
+{
+  "mcpServers": {
+    "youtube": {
+      "command": "rvx mcp-server-youtube",
       "env": {
         "YOUTUBE_API_KEY": "YOUR_API_KEY"
       }
