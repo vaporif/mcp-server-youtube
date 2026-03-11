@@ -1,0 +1,7 @@
+[advisories]
+ignore = [
+    # google-apis-common is unmaintained; the suggested replacement (google-cloud-rust)
+    # does not include a YouTube Data API v3 client. No alternative Rust crate exists.
+    # The YouTube v3 REST API is stable, so the generated bindings remain functional.
+    "RUSTSEC-2025-0066",
+]

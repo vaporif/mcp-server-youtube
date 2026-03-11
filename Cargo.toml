@@ -1,0 +1,47 @@
+[package]
+name = "mcp-server-youtube"
+version = "0.1.0"
+edition = "2024"
+description = "MCP server for YouTube — search videos, get transcripts, read comments and more"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/vaporif/mcp-server-youtube"
+readme = "README.md"
+keywords = ["mcp", "youtube", "transcripts", "ai"]
+categories = ["command-line-utilities"]
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+multiple_crate_versions = "allow"
+
+[features]
+test-helpers = []
+
+[dependencies]
+rmcp = { version = "1.1", features = ["server", "transport-io", "transport-streamable-http-server"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+thiserror = "2"
+anyhow = "1"
+hyper-rustls = { version = "0.27", features = ["http2"] }
+rustls = "0.23"
+hyper-util = { version = "0.1", features = ["client-legacy", "http2", "tokio"] }
+clap = { version = "4", features = ["derive", "env"] }
+axum = "0.8"
+tokio-util = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+secrecy = "0.10"
+
+chrono = "0.4"
+google-youtube3 = "7"
+google-apis-common = "8"
+rustypipe = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "json"] }
+
+[dev-dependencies]
+mcp-server-youtube = { path = ".", features = ["test-helpers"] }
