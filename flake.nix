@@ -56,7 +56,7 @@
       cargoArtifacts = craneLib.buildDepsOnly commonArgs;
       meta = {
         description = "Rust MCP server for YouTube";
-        license = pkgs.lib.licenses.asl20;
+        license = pkgs.lib.licenses.gpl3Plus;
         mainProgram = "mcp-server-youtube";
       };
     in {
