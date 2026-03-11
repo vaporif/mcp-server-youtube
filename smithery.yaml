@@ -1,0 +1,26 @@
+runtime: "container"
+
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
+
+startCommand:
+  type: "http"
+  configSchema:
+    type: "object"
+    required:
+      - YOUTUBE_API_KEY
+    properties:
+      YOUTUBE_API_KEY:
+        type: "string"
+        title: "YouTube API Key"
+        description: "YouTube Data API v3 key. Get one at https://console.cloud.google.com/"
+  commandFunction: |
+    (config) => ({
+      command: "mcp-server-youtube",
+      args: ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "3000"],
+      env: {
+        YOUTUBE_API_KEY: config.YOUTUBE_API_KEY
+      }
+    })
+  port: 3000

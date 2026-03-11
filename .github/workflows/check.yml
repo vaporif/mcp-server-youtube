@@ -120,6 +120,15 @@ jobs:
       - name: Nix flake check
         run: nix flake check
 
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build
+        run: docker build .
+
   audit:
     name: Audit
     runs-on: ubuntu-latest
