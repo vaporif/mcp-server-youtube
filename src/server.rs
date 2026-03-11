@@ -90,7 +90,7 @@ impl YoutubeMcpServer {
 impl YoutubeMcpServer {
     #[tool(
         name = "videos_getVideo",
-        description = "Get detailed information about a YouTube video including snippet, content details, and statistics"
+        description = "Get detailed information about a YouTube video including snippet, content details, and statistics. Takes a video ID (the 'v' parameter from YouTube URLs, e.g. dQw4w9WgXcQ from youtube.com/watch?v=dQw4w9WgXcQ). Prefer this over search when you already have a video URL or ID."
     )]
     async fn get_video(
         &self,
@@ -118,7 +118,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "videos_searchVideos",
-        description = "Search for videos on YouTube. Returns paginated results with next_page_token for fetching more."
+        description = "Search for videos on YouTube with optional filters: sort order (relevance/date/viewCount/rating), duration (short/medium/long), definition (HD/SD), date range, region, caption availability, license type, category, and safe search. Returns paginated results with nextPageToken."
     )]
     async fn search_videos(
         &self,
@@ -185,7 +185,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "videos_getCategories",
-        description = "List video categories available in a specific region"
+        description = "List video categories with their IDs for a specific region. Use the returned category IDs with videos_searchVideos or videos_getTrending to filter by category."
     )]
     async fn get_categories(
         &self,
@@ -208,7 +208,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "channels_getChannel",
-        description = "Get information about a YouTube channel including snippet, statistics, and content details"
+        description = "Get information about a YouTube channel by ID, including snippet, statistics, and content details with uploads playlist ID"
     )]
     async fn get_channel(
         &self,
@@ -231,7 +231,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "channels_listVideos",
-        description = "List videos from a specific YouTube channel, ordered by date. Returns paginated results."
+        description = "List videos from a specific YouTube channel, ordered by date. Returns paginated results. Tip: use channels_getByHandle first to resolve a handle to a channel ID."
     )]
     async fn list_channel_videos(
         &self,
@@ -283,7 +283,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "playlists_getPlaylistItems",
-        description = "List videos in a YouTube playlist. Returns paginated results."
+        description = "List videos in a YouTube playlist. Returns paginated results. Use with the uploads playlist ID from channels_getChannel or channels_getByHandle to list all channel videos."
     )]
     async fn get_playlist_items(
         &self,
@@ -341,7 +341,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "transcripts_getTranscript",
-        description = "Get the transcript/captions of a YouTube video. Works with auto-generated and manual captions."
+        description = "Get the transcript/captions of a YouTube video. Works with both auto-generated and manual captions. Returns plain text by default; set include_timestamps=true for per-segment timing. Use transcripts_listLanguages first to check available languages. Does not consume API key quota."
     )]
     async fn get_transcript(
         &self,
@@ -421,7 +421,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "videos_getTrending",
-        description = "Get trending/most popular videos for a region, optionally filtered by category."
+        description = "Get trending/most popular videos for a region, optionally filtered by category. Use videos_getCategories first to find valid category IDs for the region."
     )]
     async fn get_trending(
         &self,
@@ -452,7 +452,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "channels_getByHandle",
-        description = "Look up a YouTube channel by its handle (e.g. @shura_stone). Returns channel info and statistics."
+        description = "Look up a YouTube channel by its handle (e.g. @shura_stone). Returns channel info, statistics, and content details including the uploads playlist ID. Use this first when you have a channel name/handle, then use channels_listVideos or playlists_getPlaylistItems with the uploads playlist ID for full video listings."
     )]
     async fn get_channel_by_handle(
         &self,
@@ -475,7 +475,7 @@ impl YoutubeMcpServer {
 
     #[tool(
         name = "transcripts_listLanguages",
-        description = "List available subtitle/caption languages for a YouTube video."
+        description = "List available subtitle/caption languages for a YouTube video. Use before transcripts_getTranscript to check which languages are available. Does not consume API key quota."
     )]
     async fn list_captions(
         &self,

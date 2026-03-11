@@ -2,6 +2,13 @@
 
 A Rust [MCP](https://modelcontextprotocol.io/) server for YouTube. Search videos, read channels, browse playlists, fetch comments, and get transcripts — all from your AI assistant.
 
+### Why this one?
+
+- **Full YouTube Data API v3 coverage** — videos, channels, playlists, comments, categories, trending, search with all filters and sorting options
+- **Working transcripts** — uses [rustypipe](https://github.com/thedodd/rustypipe) (InnerTube API) for reliable subtitle/caption extraction, including auto-generated captions. No API key quota consumed for transcripts
+- **Single binary, zero runtime dependencies** — written in Rust, starts instantly
+- **Typed filter enums** — search filters (duration, definition, license, etc.) are exposed as typed enums in the JSON schema, so AI models know exactly which values are valid without guessing
+
 ## Tools
 
 ### Videos
@@ -18,7 +25,7 @@ A Rust [MCP](https://modelcontextprotocol.io/) server for YouTube. Search videos
 | Tool | Description |
 |------|-------------|
 | `channels_getChannel` | Get channel info and statistics by channel ID |
-| `channels_getByHandle` | Look up a channel by its handle (e.g. `@MrBeast`) |
+| `channels_getByHandle` | Look up a channel by its handle (e.g. `@shura_stone`) |
 | `channels_listVideos` | List videos from a channel (by date) with pagination |
 
 ### Playlists
