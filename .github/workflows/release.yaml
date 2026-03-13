@@ -89,7 +89,4 @@ jobs:
           merge-multiple: true
           path: dist
       - name: Publish
-        uses: PyO3/maturin-action@v1
-        with:
-          command: upload
-          args: --non-interactive dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
