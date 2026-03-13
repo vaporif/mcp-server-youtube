@@ -37,7 +37,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 secrecy = "0.10"
 
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+dirs = "6"
+sha2 = "0.10"
 google-youtube3 = "7"
 google-apis-common = "8"
 rustypipe = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"] }

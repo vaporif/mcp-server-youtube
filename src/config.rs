@@ -6,7 +6,7 @@ use secrecy::{ExposeSecret, SecretString};
 #[derive(Parser, Debug)]
 #[command(name = "mcp-server-youtube", about = "MCP server for YouTube")]
 pub struct Cli {
-    /// `YouTube` Data API key
+    /// `YouTube` Data API key (comma-separated for multiple keys)
     #[arg(long, env = "YOUTUBE_API_KEY")]
     pub youtube_api_key: Option<String>,
 
@@ -43,15 +43,15 @@ pub enum Transport {
 }
 
 pub struct YoutubeConfig {
-    pub api_key: SecretString,
+    pub api_keys: Vec<SecretString>,
     pub transcript_lang: String,
     pub transcript_concurrency: usize,
 }
 
 impl YoutubeConfig {
     #[must_use]
-    pub fn api_key_as_str(&self) -> &str {
-        self.api_key.expose_secret()
+    pub fn first_key_as_str(&self) -> &str {
+        self.api_keys[0].expose_secret()
     }
 }
 
@@ -62,11 +62,24 @@ pub struct Config {
 
 impl Config {
     /// # Errors
-    /// Returns an error if `YOUTUBE_API_KEY` is not provided.
+    /// Returns an error if `YOUTUBE_API_KEY` is not provided or is empty.
     pub fn from_cli(cli: Cli) -> Result<Self, crate::errors::Error> {
-        let api_key = cli
+        let raw = cli
             .youtube_api_key
             .ok_or_else(|| crate::errors::Error::Config("YOUTUBE_API_KEY is required".into()))?;
+
+        let api_keys: Vec<SecretString> = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| SecretString::from(s.to_string()))
+            .collect();
+
+        if api_keys.is_empty() {
+            return Err(crate::errors::Error::Config(
+                "YOUTUBE_API_KEY must contain at least one key".into(),
+            ));
+        }
 
         let transport = match cli.transport {
             TransportArg::Stdio => Transport::Stdio,
@@ -78,7 +91,7 @@ impl Config {
 
         Ok(Self {
             youtube: YoutubeConfig {
-                api_key: SecretString::from(api_key),
+                api_keys,
                 transcript_lang: cli.transcript_lang,
                 transcript_concurrency: cli.transcript_concurrency,
             },

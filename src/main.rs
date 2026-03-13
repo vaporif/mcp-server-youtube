@@ -6,6 +6,7 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use tracing_subscriber::EnvFilter;
 
 use mcp_server_youtube::config::{Cli, Config, Transport};
+use mcp_server_youtube::key_pool::KeyPool;
 use mcp_server_youtube::server::YoutubeMcpServer;
 
 #[tokio::main]
@@ -17,9 +18,10 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
     let config = Config::from_cli(cli)?;
+    let key_pool = Arc::new(KeyPool::new(config.youtube.api_keys.clone()));
     let config = Arc::new(config);
 
-    let server = YoutubeMcpServer::new(config.clone());
+    let server = YoutubeMcpServer::new(config.clone(), key_pool);
 
     match &config.transport {
         Transport::Stdio => {

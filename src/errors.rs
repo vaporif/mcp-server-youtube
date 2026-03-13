@@ -20,6 +20,9 @@ pub enum Error {
 
     #[error("config: {0}")]
     Config(String),
+
+    #[error("All YouTube API keys exhausted. Daily quota resets at midnight Pacific Time.")]
+    AllKeysExhausted,
 }
 
 impl From<google_apis_common::Error> for Error {
@@ -40,6 +43,45 @@ fn extract_api_error_message(value: &serde_json::Value) -> Option<(u32, &str, &s
         .as_str()?;
     let message = err.get("message")?.as_str()?;
     Some((code, reason, message))
+}
+
+fn extract_reason(err: &google_apis_common::Error) -> Option<&str> {
+    if let google_apis_common::Error::BadRequest(ref value) = *err {
+        let (_, reason, _) = extract_api_error_message(value)?;
+        Some(reason)
+    } else {
+        None
+    }
+}
+
+#[must_use]
+pub fn is_quota_exceeded(err: &Error) -> bool {
+    if let Error::YoutubeApi(api_err) = err {
+        extract_reason(api_err) == Some("quotaExceeded")
+    } else {
+        false
+    }
+}
+
+#[must_use]
+pub fn is_key_invalid(err: &Error) -> bool {
+    if let Error::YoutubeApi(api_err) = err {
+        extract_reason(api_err) == Some("keyInvalid")
+    } else {
+        false
+    }
+}
+
+#[must_use]
+pub fn is_rate_limited(err: &Error) -> bool {
+    if let Error::YoutubeApi(api_err) = err {
+        matches!(
+            extract_reason(api_err),
+            Some("rateLimitExceeded" | "userRateLimitExceeded")
+        )
+    } else {
+        false
+    }
 }
 
 fn friendly_youtube_error(err: &google_apis_common::Error) -> String {

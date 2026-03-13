@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum SearchOrder {
     Relevance,
@@ -11,7 +11,7 @@ pub enum SearchOrder {
     Title,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum VideoDuration {
     /// Less than 4 minutes
@@ -22,7 +22,7 @@ pub enum VideoDuration {
     Long,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum VideoDefinition {
     /// HD quality
@@ -31,7 +31,7 @@ pub enum VideoDefinition {
     Standard,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum EventType {
     /// Active livestream
@@ -42,7 +42,7 @@ pub enum EventType {
     Completed,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum VideoCaption {
     /// Only videos with closed captions
@@ -51,7 +51,7 @@ pub enum VideoCaption {
     None,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum VideoLicense {
     /// Creative Commons license
@@ -60,7 +60,7 @@ pub enum VideoLicense {
     Youtube,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum VideoType {
     /// Any video type
@@ -71,7 +71,7 @@ pub enum VideoType {
     Movie,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum SafeSearch {
     /// Strict filtering
@@ -170,7 +170,7 @@ pub struct GetVideoParams {
     pub parts: Vec<String>,
 }
 
-#[derive(Default, Deserialize, JsonSchema)]
+#[derive(Clone, Default, Deserialize, JsonSchema)]
 pub struct SearchVideosParams {
     /// Search query
     pub query: String,

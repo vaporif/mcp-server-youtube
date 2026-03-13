@@ -1,12 +1,38 @@
 use clap::Parser;
 use mcp_server_youtube::config::{Cli, Config};
+use secrecy::ExposeSecret;
 
 #[test]
 fn config_from_cli_with_api_key() {
     let cli = Cli::parse_from(["mcp-server-youtube", "--youtube-api-key", "test-key-123"]);
     let config = Config::from_cli(cli).unwrap();
-    assert_eq!(config.youtube.api_key_as_str(), "test-key-123");
+    assert_eq!(config.youtube.api_keys.len(), 1);
+    assert_eq!(config.youtube.api_keys[0].expose_secret(), "test-key-123");
     assert_eq!(config.youtube.transcript_lang, "en");
+}
+
+#[test]
+fn config_from_cli_with_multiple_api_keys() {
+    let cli = Cli::parse_from(["mcp-server-youtube", "--youtube-api-key", "key1,key2,key3"]);
+    let config = Config::from_cli(cli).unwrap();
+    assert_eq!(config.youtube.api_keys.len(), 3);
+    assert_eq!(config.youtube.api_keys[0].expose_secret(), "key1");
+    assert_eq!(config.youtube.api_keys[1].expose_secret(), "key2");
+    assert_eq!(config.youtube.api_keys[2].expose_secret(), "key3");
+}
+
+#[test]
+fn config_from_cli_trims_whitespace_around_keys() {
+    let cli = Cli::parse_from([
+        "mcp-server-youtube",
+        "--youtube-api-key",
+        "key1 , key2 , key3",
+    ]);
+    let config = Config::from_cli(cli).unwrap();
+    assert_eq!(config.youtube.api_keys.len(), 3);
+    assert_eq!(config.youtube.api_keys[0].expose_secret(), "key1");
+    assert_eq!(config.youtube.api_keys[1].expose_secret(), "key2");
+    assert_eq!(config.youtube.api_keys[2].expose_secret(), "key3");
 }
 
 #[test]

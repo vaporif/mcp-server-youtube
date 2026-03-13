@@ -7,6 +7,7 @@ use rmcp::{ErrorData as McpError, ServerHandler, tool, tool_handler, tool_router
 
 use crate::config::Config;
 use crate::errors::Error;
+use crate::key_pool::KeyPool;
 use crate::params::{
     GetBatchTranscriptsParams, GetCategoriesParams, GetChannelByHandleParams, GetChannelParams,
     GetCommentsParams, GetPlaylistItemsParams, GetPlaylistParams, GetTranscriptParams,
@@ -63,6 +64,7 @@ fn extract_event_text(event: &serde_json::Value) -> Option<String> {
 pub struct YoutubeMcpServer {
     hub: Arc<YoutubeHub>,
     config: Arc<Config>,
+    key_pool: Arc<KeyPool>,
     http: reqwest::Client,
     rustypipe: Arc<rustypipe::client::RustyPipe>,
     tool_router: ToolRouter<Self>,
@@ -70,20 +72,17 @@ pub struct YoutubeMcpServer {
 
 impl YoutubeMcpServer {
     #[must_use]
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(config: Arc<Config>, key_pool: Arc<KeyPool>) -> Self {
         let hub = Arc::new(create_hub());
         let tool_router = Self::tool_router();
         Self {
             hub,
             config,
+            key_pool,
             http: reqwest::Client::new(),
             rustypipe: Arc::new(rustypipe::client::RustyPipe::new()),
             tool_router,
         }
-    }
-
-    fn api_key(&self) -> &str {
-        self.config.youtube.api_key_as_str()
     }
 }
 
@@ -104,15 +103,25 @@ impl YoutubeMcpServer {
             params.parts
         };
 
+        let hub = self.hub.clone();
+        let video_id = params.video_id.clone();
         let (_, body) = self
-            .hub
-            .videos()
-            .list(&parts)
-            .add_id(&params.video_id)
-            .param("key", self.api_key())
-            .doit()
-            .await
-            .map_err(Error::from)?;
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let video_id = video_id.clone();
+                async move {
+                    hub.videos()
+                        .list(&parts)
+                        .add_id(&video_id)
+                        .param("key", &key)
+                        .doit()
+                        .await
+                        .map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -127,59 +136,74 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(query = %params.query, max_results = params.max_results, "search_videos");
         let parts = parts(&["snippet"]);
-        let call = self
-            .hub
-            .search()
-            .list(&parts)
-            .q(&params.query)
-            .max_results(clamp_max_results(params.max_results))
-            .add_type("video")
-            .param("key", self.api_key());
 
-        let mut call = OptionalFilters(call)
-            .apply(params.page_token.as_deref(), SearchListCall::page_token)
-            .apply(params.order.as_ref(), SearchListCall::order)
-            .apply(
-                params.video_duration.as_ref(),
-                SearchListCall::video_duration,
-            )
-            .apply(
-                params.video_definition.as_ref(),
-                SearchListCall::video_definition,
-            )
-            .apply(params.event_type.as_ref(), SearchListCall::event_type)
-            .apply(params.region_code.as_deref(), SearchListCall::region_code)
-            .apply(params.video_caption.as_ref(), SearchListCall::video_caption)
-            .apply(params.video_license.as_ref(), SearchListCall::video_license)
-            .apply(params.video_type.as_ref(), SearchListCall::video_type)
-            .apply(params.safe_search.as_ref(), SearchListCall::safe_search)
-            .apply(
-                params.video_category_id.as_deref(),
-                SearchListCall::video_category_id,
-            )
-            .apply(
-                params.relevance_language.as_deref(),
-                SearchListCall::relevance_language,
-            )
-            .build();
+        let hub = self.hub.clone();
+        let (_, body) = self
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let params = params.clone();
+                async move {
+                    let call = hub
+                        .search()
+                        .list(&parts)
+                        .q(&params.query)
+                        .max_results(clamp_max_results(params.max_results))
+                        .add_type("video")
+                        .param("key", &key);
 
-        if params.embeddable_only == Some(true) {
-            call = call.video_embeddable("true");
-        }
-        if let Some(after) = &params.published_after {
-            let dt = after
-                .parse::<chrono::DateTime<chrono::Utc>>()
-                .map_err(|e| Error::Config(format!("invalid published_after date: {e}")))?;
-            call = call.published_after(dt);
-        }
-        if let Some(before) = &params.published_before {
-            let dt = before
-                .parse::<chrono::DateTime<chrono::Utc>>()
-                .map_err(|e| Error::Config(format!("invalid published_before date: {e}")))?;
-            call = call.published_before(dt);
-        }
+                    let mut call = OptionalFilters(call)
+                        .apply(params.page_token.as_deref(), SearchListCall::page_token)
+                        .apply(params.order.as_ref(), SearchListCall::order)
+                        .apply(
+                            params.video_duration.as_ref(),
+                            SearchListCall::video_duration,
+                        )
+                        .apply(
+                            params.video_definition.as_ref(),
+                            SearchListCall::video_definition,
+                        )
+                        .apply(params.event_type.as_ref(), SearchListCall::event_type)
+                        .apply(params.region_code.as_deref(), SearchListCall::region_code)
+                        .apply(params.video_caption.as_ref(), SearchListCall::video_caption)
+                        .apply(params.video_license.as_ref(), SearchListCall::video_license)
+                        .apply(params.video_type.as_ref(), SearchListCall::video_type)
+                        .apply(params.safe_search.as_ref(), SearchListCall::safe_search)
+                        .apply(
+                            params.video_category_id.as_deref(),
+                            SearchListCall::video_category_id,
+                        )
+                        .apply(
+                            params.relevance_language.as_deref(),
+                            SearchListCall::relevance_language,
+                        )
+                        .build();
 
-        let (_, body) = call.doit().await.map_err(Error::from)?;
+                    if params.embeddable_only == Some(true) {
+                        call = call.video_embeddable("true");
+                    }
+                    if let Some(after) = &params.published_after {
+                        let dt = after
+                            .parse::<chrono::DateTime<chrono::Utc>>()
+                            .map_err(|e| {
+                                Error::Config(format!("invalid published_after date: {e}"))
+                            })?;
+                        call = call.published_after(dt);
+                    }
+                    if let Some(before) = &params.published_before {
+                        let dt = before
+                            .parse::<chrono::DateTime<chrono::Utc>>()
+                            .map_err(|e| {
+                                Error::Config(format!("invalid published_before date: {e}"))
+                            })?;
+                        call = call.published_before(dt);
+                    }
+
+                    call.doit().await.map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -194,15 +218,26 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(region_code = %params.region_code, "get_categories");
         let parts = parts(&["snippet"]);
+
+        let hub = self.hub.clone();
+        let region_code = params.region_code.clone();
         let (_, body) = self
-            .hub
-            .video_categories()
-            .list(&parts)
-            .region_code(&params.region_code)
-            .param("key", self.api_key())
-            .doit()
-            .await
-            .map_err(Error::from)?;
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let region_code = region_code.clone();
+                async move {
+                    hub.video_categories()
+                        .list(&parts)
+                        .region_code(&region_code)
+                        .param("key", &key)
+                        .doit()
+                        .await
+                        .map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -217,15 +252,26 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(channel_id = %params.channel_id, "get_channel");
         let parts = parts(&["snippet", "contentDetails", "statistics"]);
+
+        let hub = self.hub.clone();
+        let channel_id = params.channel_id.clone();
         let (_, body) = self
-            .hub
-            .channels()
-            .list(&parts)
-            .add_id(&params.channel_id)
-            .param("key", self.api_key())
-            .doit()
-            .await
-            .map_err(Error::from)?;
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let channel_id = channel_id.clone();
+                async move {
+                    hub.channels()
+                        .list(&parts)
+                        .add_id(&channel_id)
+                        .param("key", &key)
+                        .doit()
+                        .await
+                        .map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -240,16 +286,25 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(channel_id = %params.channel_id, max_results = params.max_results, "list_channel_videos");
 
-        // Resolve the channel's uploads playlist ID.
+        // First call: resolve the channel's uploads playlist ID
+        let hub = self.hub.clone();
+        let channel_id = params.channel_id.clone();
         let (_, channel) = self
-            .hub
-            .channels()
-            .list(&parts(&["contentDetails"]))
-            .add_id(&params.channel_id)
-            .param("key", self.api_key())
-            .doit()
-            .await
-            .map_err(Error::from)?;
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let channel_id = channel_id.clone();
+                async move {
+                    hub.channels()
+                        .list(&parts(&["contentDetails"]))
+                        .add_id(&channel_id)
+                        .param("key", &key)
+                        .doit()
+                        .await
+                        .map_err(Error::from)
+                }
+            })
+            .await?;
 
         let uploads_id = channel
             .items
@@ -263,25 +318,34 @@ impl YoutubeMcpServer {
                     "no uploads playlist for channel {}",
                     params.channel_id
                 ))
-            })?;
+            })?
+            .to_string();
 
-        // List videos from the uploads playlist.
+        // Second call: list videos from the uploads playlist
+        let hub = self.hub.clone();
         let video_parts = parts(&["snippet", "contentDetails"]);
-        let call = OptionalFilters(
-            self.hub
-                .playlist_items()
-                .list(&video_parts)
-                .playlist_id(uploads_id)
-                .max_results(clamp_max_results(params.max_results))
-                .param("key", self.api_key()),
-        )
-        .apply(
-            params.page_token.as_deref(),
-            PlaylistItemListCall::page_token,
-        )
-        .build();
+        let (_, body) = self
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let video_parts = video_parts.clone();
+                let uploads_id = uploads_id.clone();
+                let page_token = params.page_token.clone();
+                async move {
+                    let call = OptionalFilters(
+                        hub.playlist_items()
+                            .list(&video_parts)
+                            .playlist_id(&uploads_id)
+                            .max_results(clamp_max_results(params.max_results))
+                            .param("key", &key),
+                    )
+                    .apply(page_token.as_deref(), PlaylistItemListCall::page_token)
+                    .build();
 
-        let (_, body) = call.doit().await.map_err(Error::from)?;
+                    call.doit().await.map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -296,15 +360,26 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(playlist_id = %params.playlist_id, "get_playlist");
         let parts = parts(&["snippet", "contentDetails"]);
+
+        let hub = self.hub.clone();
+        let playlist_id = params.playlist_id.clone();
         let (_, body) = self
-            .hub
-            .playlists()
-            .list(&parts)
-            .add_id(&params.playlist_id)
-            .param("key", self.api_key())
-            .doit()
-            .await
-            .map_err(Error::from)?;
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let playlist_id = playlist_id.clone();
+                async move {
+                    hub.playlists()
+                        .list(&parts)
+                        .add_id(&playlist_id)
+                        .param("key", &key)
+                        .doit()
+                        .await
+                        .map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -319,21 +394,32 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(playlist_id = %params.playlist_id, max_results = params.max_results, "get_playlist_items");
         let parts = parts(&["snippet", "contentDetails"]);
-        let call = OptionalFilters(
-            self.hub
-                .playlist_items()
-                .list(&parts)
-                .playlist_id(&params.playlist_id)
-                .max_results(clamp_max_results(params.max_results))
-                .param("key", self.api_key()),
-        )
-        .apply(
-            params.page_token.as_deref(),
-            PlaylistItemListCall::page_token,
-        )
-        .build();
 
-        let (_, body) = call.doit().await.map_err(Error::from)?;
+        let hub = self.hub.clone();
+        let playlist_id = params.playlist_id.clone();
+        let page_token = params.page_token.clone();
+        let (_, body) = self
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let playlist_id = playlist_id.clone();
+                let page_token = page_token.clone();
+                async move {
+                    let call = OptionalFilters(
+                        hub.playlist_items()
+                            .list(&parts)
+                            .playlist_id(&playlist_id)
+                            .max_results(clamp_max_results(params.max_results))
+                            .param("key", &key),
+                    )
+                    .apply(page_token.as_deref(), PlaylistItemListCall::page_token)
+                    .build();
+
+                    call.doit().await.map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -348,21 +434,32 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(video_id = %params.video_id, max_results = params.max_results, "get_comments");
         let parts = parts(&["snippet", "replies"]);
-        let call = OptionalFilters(
-            self.hub
-                .comment_threads()
-                .list(&parts)
-                .video_id(&params.video_id)
-                .max_results(clamp_max_results(params.max_results))
-                .param("key", self.api_key()),
-        )
-        .apply(
-            params.page_token.as_deref(),
-            CommentThreadListCall::page_token,
-        )
-        .build();
 
-        let (_, body) = call.doit().await.map_err(Error::from)?;
+        let hub = self.hub.clone();
+        let video_id = params.video_id.clone();
+        let page_token = params.page_token.clone();
+        let (_, body) = self
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let video_id = video_id.clone();
+                let page_token = page_token.clone();
+                async move {
+                    let call = OptionalFilters(
+                        hub.comment_threads()
+                            .list(&parts)
+                            .video_id(&video_id)
+                            .max_results(clamp_max_results(params.max_results))
+                            .param("key", &key),
+                    )
+                    .apply(page_token.as_deref(), CommentThreadListCall::page_token)
+                    .build();
+
+                    call.doit().await.map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -457,23 +554,36 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(region_code = %params.region_code, category_id = ?params.category_id, "get_trending");
         let parts = parts(&["snippet", "contentDetails", "statistics"]);
-        let call = OptionalFilters(
-            self.hub
-                .videos()
-                .list(&parts)
-                .chart("mostPopular")
-                .region_code(&params.region_code)
-                .max_results(clamp_max_results(params.max_results))
-                .param("key", self.api_key()),
-        )
-        .apply(
-            params.category_id.as_deref(),
-            VideoListCall::video_category_id,
-        )
-        .apply(params.page_token.as_deref(), VideoListCall::page_token)
-        .build();
 
-        let (_, body) = call.doit().await.map_err(Error::from)?;
+        let hub = self.hub.clone();
+        let region_code = params.region_code.clone();
+        let category_id = params.category_id.clone();
+        let page_token = params.page_token.clone();
+        let (_, body) = self
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let region_code = region_code.clone();
+                let category_id = category_id.clone();
+                let page_token = page_token.clone();
+                async move {
+                    let call = OptionalFilters(
+                        hub.videos()
+                            .list(&parts)
+                            .chart("mostPopular")
+                            .region_code(&region_code)
+                            .max_results(clamp_max_results(params.max_results))
+                            .param("key", &key),
+                    )
+                    .apply(category_id.as_deref(), VideoListCall::video_category_id)
+                    .apply(page_token.as_deref(), VideoListCall::page_token)
+                    .build();
+
+                    call.doit().await.map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -488,15 +598,26 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(handle = %params.handle, "get_channel_by_handle");
         let parts = parts(&["snippet", "contentDetails", "statistics"]);
+
+        let hub = self.hub.clone();
+        let handle = params.handle.clone();
         let (_, body) = self
-            .hub
-            .channels()
-            .list(&parts)
-            .for_handle(&params.handle)
-            .param("key", self.api_key())
-            .doit()
-            .await
-            .map_err(Error::from)?;
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let handle = handle.clone();
+                async move {
+                    hub.channels()
+                        .list(&parts)
+                        .for_handle(&handle)
+                        .param("key", &key)
+                        .doit()
+                        .await
+                        .map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }
@@ -511,19 +632,33 @@ impl YoutubeMcpServer {
     ) -> Result<CallToolResult, McpError> {
         tracing::debug!(query = %params.query, max_results = params.max_results, "search_channels");
         let parts = parts(&["snippet"]);
-        let call = OptionalFilters(
-            self.hub
-                .search()
-                .list(&parts)
-                .q(&params.query)
-                .add_type("channel")
-                .max_results(clamp_max_results(params.max_results))
-                .param("key", self.api_key()),
-        )
-        .apply(params.page_token.as_deref(), SearchListCall::page_token)
-        .build();
 
-        let (_, body) = call.doit().await.map_err(Error::from)?;
+        let hub = self.hub.clone();
+        let query = params.query.clone();
+        let page_token = params.page_token.clone();
+        let (_, body) = self
+            .key_pool
+            .execute_with_key(|key: String| {
+                let hub = hub.clone();
+                let parts = parts.clone();
+                let query = query.clone();
+                let page_token = page_token.clone();
+                async move {
+                    let call = OptionalFilters(
+                        hub.search()
+                            .list(&parts)
+                            .q(&query)
+                            .add_type("channel")
+                            .max_results(clamp_max_results(params.max_results))
+                            .param("key", &key),
+                    )
+                    .apply(page_token.as_deref(), SearchListCall::page_token)
+                    .build();
+
+                    call.doit().await.map_err(Error::from)
+                }
+            })
+            .await?;
 
         to_json_result(&body)
     }

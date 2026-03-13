@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use mcp_server_youtube::config::{Config, Transport, YoutubeConfig};
+use mcp_server_youtube::key_pool::KeyPool;
 use mcp_server_youtube::params::SearchVideosParams;
 use mcp_server_youtube::server::YoutubeMcpServer;
 use rmcp::handler::server::wrapper::Parameters;
@@ -14,15 +15,17 @@ fn api_key() -> String {
 }
 
 fn create_server() -> YoutubeMcpServer {
+    let api_keys = vec![SecretString::from(api_key())];
+    let key_pool = Arc::new(KeyPool::new(api_keys.clone()));
     let config = Arc::new(Config {
         youtube: YoutubeConfig {
-            api_key: SecretString::from(api_key()),
+            api_keys,
             transcript_lang: "en".into(),
             transcript_concurrency: 50,
         },
         transport: Transport::Stdio,
     });
-    YoutubeMcpServer::new(config)
+    YoutubeMcpServer::new(config, key_pool)
 }
 
 // Well-known test fixtures:
