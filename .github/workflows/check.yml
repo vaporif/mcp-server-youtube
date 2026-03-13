@@ -44,7 +44,7 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
 
-      - name: Maturin build (dry run)
+      - name: Maturin build (check)
         uses: PyO3/maturin-action@v1
         with:
           args: --release --out dist

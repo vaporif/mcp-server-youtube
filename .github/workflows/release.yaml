@@ -77,7 +77,7 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI
-    needs: [build-wheels]
+    needs: [build-wheels, publish]
     runs-on: ubuntu-latest
     environment: release
     permissions:

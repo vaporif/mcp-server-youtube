@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "mcp-server-youtube"
-version = "0.1.2"
+dynamic = ["version"]
 description = "MCP server for YouTube — search videos, get transcripts, read comments and more"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
