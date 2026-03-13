@@ -9,3 +9,11 @@ startCommand:
         type: "string"
         title: "YouTube API Key"
         description: "YouTube Data API v3 key. Get one at https://console.cloud.google.com/"
+  commandFunction: |-
+    (config) => ({
+      command: "uvx",
+      args: ["mcp-server-youtube"],
+      env: {
+        YOUTUBE_API_KEY: config.YOUTUBE_API_KEY
+      }
+    })
