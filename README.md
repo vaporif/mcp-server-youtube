@@ -1,5 +1,8 @@
 # mcp-server-youtube
 
+[![Check](https://github.com/vaporif/mcp-server-youtube/actions/workflows/check.yml/badge.svg)](https://github.com/vaporif/mcp-server-youtube/actions/workflows/check.yml)
+[![Integration Tests](https://github.com/vaporif/mcp-server-youtube/actions/workflows/integration.yml/badge.svg)](https://github.com/vaporif/mcp-server-youtube/actions/workflows/integration.yml)
+
 A Rust [MCP](https://modelcontextprotocol.io/) server for YouTube. Search videos, read channels, browse playlists, fetch comments, and get transcripts — all from your AI assistant.
 
 ### Why this one?
