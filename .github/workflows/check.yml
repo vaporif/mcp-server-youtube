@@ -44,6 +44,11 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
 
+      - name: Maturin build (check)
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --out dist
+
   cross:
     name: Cross ${{ matrix.target }}
     runs-on: ${{ matrix.os }}

@@ -86,6 +86,8 @@
             pkgs.typos
             pkgs.actionlint
             pkgs.cargo-nextest
+            pkgs.maturin
+            pkgs.uv
           ]
           ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.apple-sdk_15

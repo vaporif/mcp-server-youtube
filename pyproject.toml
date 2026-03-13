@@ -1,0 +1,24 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mcp-server-youtube"
+dynamic = ["version"]
+description = "MCP server for YouTube — search videos, get transcripts, read comments and more"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.8"
+keywords = ["mcp", "youtube", "transcripts", "ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Rust",
+    "Topic :: Multimedia :: Video",
+]
+
+[project.urls]
+Repository = "https://github.com/vaporif/mcp-server-youtube"
+
+[tool.maturin]
+bindings = "bin"

@@ -76,7 +76,23 @@ The API key is stored as a `SecretString` and never appears in logs or debug out
 
 ### Claude Desktop / Claude Code
 
-Add to your MCP config (requires [rvx](https://github.com/vaporif/rvx)):
+**With [uvx](https://docs.astral.sh/uv/):**
+
+```json
+{
+  "mcpServers": {
+    "youtube": {
+      "command": "uvx",
+      "args": ["mcp-server-youtube"],
+      "env": {
+        "YOUTUBE_API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+**With [rvx](https://github.com/vaporif/rvx):**
 
 ```json
 {
@@ -95,16 +111,16 @@ Add to your MCP config (requires [rvx](https://github.com/vaporif/rvx)):
 <details>
 <summary>Other installation methods</summary>
 
-**From source:**
-
-```sh
-cargo install --git https://github.com/vaporif/mcp-server-youtube
-```
-
 **With Nix:**
 
 ```sh
 nix run github:vaporif/mcp-server-youtube
+```
+
+**With cargo:**
+
+```sh
+cargo install mcp-server-youtube
 ```
 
 **From releases:**
